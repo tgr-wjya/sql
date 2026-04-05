@@ -43,6 +43,8 @@ Validation is behavior-first: you can write your own SQL approach, but hidden ch
 the required database outcomes and integrity rules.
 
 See `docs/WORKFLOW.md` for the learning contract and validation philosophy.
+Use `docs/PLAYBOOK.md` for day-to-day execution and phase-to-reference mapping.
+SQL reference is split by topic under `docs/sql/` (entrypoint: `docs/sql/00-map.md`).
 
 The campaign currently ships 12 operations mapped to core backend SQL topics:
 schema, inserts, filtering, joins, aggregates, HAVING, CTE/subquery, updates/deletes,

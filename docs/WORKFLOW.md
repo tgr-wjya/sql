@@ -36,6 +36,18 @@ Checks include:
 - result-set comparison for evidence queries
 - transactional or performance assertions using `EXPLAIN QUERY PLAN`
 
+## Strictness profile (minimal ambiguity)
+
+Validation follows a strict contract so you can self-author SQL with low guesswork:
+
+- Every objective exposes explicit acceptance checks in the UI.
+- Column names and required outputs are exact for result objectives.
+- Structural constraints are enforced for schema objectives (PK/FK/UNIQUE/CHECK).
+- Some objectives require specific SQL constructs (`requiredTokens`) when concept mastery matters.
+- Passing means both correctness and intent are satisfied.
+
+This keeps freedom in query/style, but keeps pass/fail deterministic.
+
 ## Difficulty philosophy
 
 - Keep friction meaningful, not punishing.
