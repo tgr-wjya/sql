@@ -1,20 +1,309 @@
-import type { Operation } from "./types";
+import type { Database } from "bun:sqlite";
+
+import type { Operation, ValidationOutcome } from "./types";
+
+interface TableInfoRow {
+  cid: number;
+  name: string;
+  type: string;
+  notnull: number;
+  dflt_value: string | null;
+  pk: number;
+}
+
+interface ForeignKeyRow {
+  id: number;
+  seq: number;
+  table: string;
+  from: string;
+  to: string;
+  on_update: string;
+  on_delete: string;
+  match: string;
+}
+
+function tableSql(db: Database, tableName: string): string {
+  const row = db
+    .query("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?;")
+    .get(tableName) as { sql: string } | null;
+  return row?.sql ?? "";
+}
+
+function hasTable(db: Database, tableName: string): boolean {
+  const row = db
+    .query("SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ?;")
+    .get(tableName) as { ok: number } | null;
+  return row?.ok === 1;
+}
+
+function tableInfo(db: Database, tableName: string): TableInfoRow[] {
+  return db.query(`PRAGMA table_info(${tableName});`).all() as TableInfoRow[];
+}
+
+function hasRequiredColumns(
+  db: Database,
+  tableName: string,
+  required: Array<{ name: string; notNull?: boolean }>,
+): ValidationOutcome {
+  if (!hasTable(db, tableName)) {
+    return { pass: false, detail: `Table '${tableName}' is missing.` };
+  }
+
+  const info = tableInfo(db, tableName);
+  for (const column of required) {
+    const found = info.find((item) => item.name === column.name);
+    if (!found) {
+      return {
+        pass: false,
+        detail: `Column '${column.name}' is missing in table '${tableName}'.`,
+      };
+    }
+
+    if (column.notNull && found.notnull !== 1) {
+      return {
+        pass: false,
+        detail: `Column '${tableName}.${column.name}' must be NOT NULL.`,
+      };
+    }
+  }
+
+  return { pass: true };
+}
+
+function hasCompositePk(db: Database, tableName: string, columns: string[]): ValidationOutcome {
+  const info = tableInfo(db, tableName);
+  const pkColumns = info
+    .filter((row) => row.pk > 0)
+    .sort((left, right) => left.pk - right.pk)
+    .map((row) => row.name);
+
+  if (pkColumns.length !== columns.length) {
+    return {
+      pass: false,
+      detail: `Table '${tableName}' must have a ${columns.length}-column composite primary key (${columns.join(", ")}).`,
+    };
+  }
+
+  for (let index = 0; index < columns.length; index += 1) {
+    if (pkColumns[index] !== columns[index]) {
+      return {
+        pass: false,
+        detail: `Composite PK for '${tableName}' must be ordered as (${columns.join(", ")}).`,
+      };
+    }
+  }
+
+  return { pass: true };
+}
+
+function hasForeignKey(
+  db: Database,
+  tableName: string,
+  options: {
+    from: string;
+    refTable: string;
+    refColumn: string;
+    onDelete: string[];
+  },
+): ValidationOutcome {
+  const rows = db.query(`PRAGMA foreign_key_list(${tableName});`).all() as ForeignKeyRow[];
+  const match = rows.find(
+    (row) =>
+      row.from === options.from &&
+      row.table === options.refTable &&
+      row.to === options.refColumn &&
+      options.onDelete.includes(row.on_delete.toUpperCase()),
+  );
+
+  if (!match) {
+    return {
+      pass: false,
+      detail:
+        `Missing FK ${tableName}.${options.from} -> ${options.refTable}.${options.refColumn} ` +
+        `with ON DELETE ${options.onDelete.join("/")}.`,
+    };
+  }
+
+  return { pass: true };
+}
+
+function hasUniqueConstraint(db: Database, tableName: string, columnName: string): ValidationOutcome {
+  const indexes = db.query(`PRAGMA index_list(${tableName});`).all() as Array<{
+    seq: number;
+    name: string;
+    unique: number;
+  }>;
+
+  for (const index of indexes) {
+    if (index.unique !== 1) continue;
+    const columns = db.query(`PRAGMA index_info(${index.name});`).all() as Array<{ name: string }>;
+    if (columns.length === 1 && columns[0]?.name === columnName) {
+      return { pass: true };
+    }
+  }
+
+  return {
+    pass: false,
+    detail: `Table '${tableName}' must enforce UNIQUE on column '${columnName}'.`,
+  };
+}
+
+function includesCheckConstraint(sql: string, fragment: string): boolean {
+  return sql.toUpperCase().includes(fragment.toUpperCase());
+}
+
+function normalizedSql(sql: string): string {
+  return sql.toUpperCase().replace(/\s+/g, " ");
+}
 
 export const OPERATIONS: Operation[] = [
   {
     id: 1,
     code: "BLUEPRINT",
-    title: "Trace The Schema",
+    title: "Five-Phase Intake",
     briefing:
-      "Aria's dump opens with organizational metadata. Before touching evidence, map the database surface and find which tables exist.",
+      "This operation runs the full workflow simulator. You will design schema, seed data, investigate via joins, mutate safely, then harden performance.",
     objectives: [
       {
-        id: "obj-1",
-        title: "Table Sweep",
+        id: "architect-1",
+        phase: "ARCHITECT",
+        title: "Design The Core Schema",
         narrative:
-          "Return every user-defined table name from this database in alphabetical order.",
-        mode: "result",
+          "From scratch, build tables for departments, employees, projects, and employee_projects. This is design-first: your constraints decide whether later phases work.",
+        acceptance: [
+          "Create tables departments, employees, projects, employee_projects.",
+          "departments.name is UNIQUE and NOT NULL.",
+          "employees.clearance_level uses a CHECK bounded between 1 and 5.",
+          "employee_projects has composite primary key (employee_id, project_id).",
+          "Foreign keys link departments/projects/employees with sensible ON DELETE rules.",
+        ],
+        starterSql: `CREATE TABLE departments (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE
+);
+
+-- Continue with employees, projects, and employee_projects`,
+        mode: "assert",
         setupSql: `
+PRAGMA foreign_keys = ON;
+`,
+        validate: (db) => {
+          const requiredTables = ["departments", "employees", "projects", "employee_projects"];
+          for (const table of requiredTables) {
+            if (!hasTable(db, table)) {
+              return { pass: false, detail: `Missing table '${table}'.` };
+            }
+          }
+
+          const departmentsCheck = hasRequiredColumns(db, "departments", [
+            { name: "id" },
+            { name: "name", notNull: true },
+          ]);
+          if (!departmentsCheck.pass) return departmentsCheck;
+
+          const uniqueCheck = hasUniqueConstraint(db, "departments", "name");
+          if (!uniqueCheck.pass) return uniqueCheck;
+
+          const employeesCheck = hasRequiredColumns(db, "employees", [
+            { name: "id" },
+            { name: "codename", notNull: true },
+            { name: "department_id", notNull: true },
+            { name: "clearance_level", notNull: true },
+          ]);
+          if (!employeesCheck.pass) return employeesCheck;
+
+          const employeesSql = tableSql(db, "employees");
+          const employeeSchema = normalizedSql(employeesSql);
+          const hasRangeCheck =
+            employeeSchema.includes("CHECK") &&
+            (employeeSchema.includes("CLEARANCE_LEVEL BETWEEN 1 AND 5") ||
+              (employeeSchema.includes("CLEARANCE_LEVEL >= 1") &&
+                employeeSchema.includes("CLEARANCE_LEVEL <= 5")));
+
+          if (!hasRangeCheck) {
+            return {
+              pass: false,
+              detail: "Table 'employees' must include CHECK(clearance_level BETWEEN 1 AND 5).",
+            };
+          }
+
+          const projectsCheck = hasRequiredColumns(db, "projects", [
+            { name: "id" },
+            { name: "code", notNull: true },
+            { name: "department_id", notNull: true },
+          ]);
+          if (!projectsCheck.pass) return projectsCheck;
+
+          const junctionCheck = hasRequiredColumns(db, "employee_projects", [
+            { name: "employee_id", notNull: true },
+            { name: "project_id", notNull: true },
+          ]);
+          if (!junctionCheck.pass) return junctionCheck;
+
+          const pkCheck = hasCompositePk(db, "employee_projects", ["employee_id", "project_id"]);
+          if (!pkCheck.pass) return pkCheck;
+
+          const employeeFk = hasForeignKey(db, "employees", {
+            from: "department_id",
+            refTable: "departments",
+            refColumn: "id",
+            onDelete: ["RESTRICT", "NO ACTION"],
+          });
+          if (!employeeFk.pass) return employeeFk;
+
+          const projectFk = hasForeignKey(db, "projects", {
+            from: "department_id",
+            refTable: "departments",
+            refColumn: "id",
+            onDelete: ["RESTRICT", "NO ACTION"],
+          });
+          if (!projectFk.pass) return projectFk;
+
+          const junctionEmployeeFk = hasForeignKey(db, "employee_projects", {
+            from: "employee_id",
+            refTable: "employees",
+            refColumn: "id",
+            onDelete: ["CASCADE"],
+          });
+          if (!junctionEmployeeFk.pass) return junctionEmployeeFk;
+
+          const junctionProjectFk = hasForeignKey(db, "employee_projects", {
+            from: "project_id",
+            refTable: "projects",
+            refColumn: "id",
+            onDelete: ["CASCADE"],
+          });
+          if (!junctionProjectFk.pass) return junctionProjectFk;
+
+          return { pass: true };
+        },
+        hints: [
+          "Start with departments, then employees/projects, then employee_projects junction.",
+          "Use PRAGMA foreign_keys = ON and explicit REFERENCES ... ON DELETE behavior.",
+          "Your junction table should use PRIMARY KEY (employee_id, project_id).",
+        ],
+        xp: 140,
+      },
+      {
+        id: "populate-1",
+        phase: "POPULATE",
+        title: "Seed The Leak Extract",
+        narrative:
+          "Insert leaked org records: 3 departments already exist. Add employees, projects, and employee-project links in safe dependency order.",
+        acceptance: [
+          "Insert four employees with IDs 101-104.",
+          "Insert two projects with IDs 201 and 202.",
+          "Insert three links into employee_projects.",
+          "No FK violations while seeding.",
+        ],
+        starterSql: `INSERT INTO employees (id, codename, department_id, clearance_level) VALUES
+  (101, 'Nyra Sol', 1, 5);
+
+-- Continue remaining employees, then projects, then employee_projects`,
+        mode: "assert",
+        setupSql: `
+PRAGMA foreign_keys = ON;
+
 CREATE TABLE departments (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL UNIQUE
@@ -22,7 +311,7 @@ CREATE TABLE departments (
 
 CREATE TABLE employees (
   id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL,
+  codename TEXT NOT NULL,
   department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
   clearance_level INTEGER NOT NULL CHECK(clearance_level BETWEEN 1 AND 5)
 );
@@ -32,20 +321,282 @@ CREATE TABLE projects (
   code TEXT NOT NULL UNIQUE,
   department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE RESTRICT
 );
+
+CREATE TABLE employee_projects (
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  PRIMARY KEY (employee_id, project_id)
+);
+
+INSERT INTO departments (id, name) VALUES
+  (1, 'Cybernetics'),
+  (2, 'Legal'),
+  (3, 'Logistics');
+`,
+        assertSql: `
+SELECT CASE
+  WHEN (SELECT COUNT(*) FROM employees) = 4
+   AND (SELECT COUNT(*) FROM projects) = 2
+   AND (SELECT COUNT(*) FROM employee_projects) = 3
+   AND EXISTS (
+     SELECT 1 FROM employees
+     WHERE id = 101 AND codename = 'Nyra Sol' AND department_id = 1 AND clearance_level = 5
+   )
+   AND EXISTS (
+     SELECT 1 FROM projects
+     WHERE id = 201 AND code = 'BLACKOUT' AND department_id = 1
+   )
+   AND EXISTS (
+     SELECT 1 FROM employee_projects
+     WHERE employee_id = 103 AND project_id = 201
+   )
+  THEN 1 ELSE 0 END AS pass;
+`,
+        requiredTokens: ["INSERT"],
+        hints: [
+          "Seed order matters: employees/projects before employee_projects.",
+          "Required employees: 101 Nyra Sol, 102 Bram Kade, 103 Mara Quill, 104 Ivo Chen.",
+          "Required projects: 201 BLACKOUT dept 1, 202 GLASS-PORT dept 3.",
+        ],
+        xp: 110,
+      },
+      {
+        id: "investigate-1",
+        phase: "INVESTIGATE",
+        title: "Trace Unauthorized Access",
+        narrative:
+          "Find every codename on BLACKOUT with clearance >= 4. Return codename and clearance_level sorted by clearance desc then codename asc.",
+        acceptance: [
+          "Join across employees, employee_projects, and projects.",
+          "Filter code = BLACKOUT and clearance >= 4.",
+          "Output columns: codename, clearance_level.",
+        ],
+        starterSql: `SELECT e.codename, e.clearance_level
+FROM employees e
+-- join through employee_projects and projects
+`,
+        mode: "result",
+        setupSql: `
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE departments (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE employees (
+  id INTEGER PRIMARY KEY,
+  codename TEXT NOT NULL,
+  department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+  clearance_level INTEGER NOT NULL CHECK(clearance_level BETWEEN 1 AND 5)
+);
+
+CREATE TABLE projects (
+  id INTEGER PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE employee_projects (
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  PRIMARY KEY (employee_id, project_id)
+);
+
+INSERT INTO departments (id, name) VALUES
+  (1, 'Cybernetics'),
+  (2, 'Legal'),
+  (3, 'Logistics');
+
+INSERT INTO employees (id, codename, department_id, clearance_level) VALUES
+  (101, 'Nyra Sol', 1, 5),
+  (102, 'Bram Kade', 3, 4),
+  (103, 'Mara Quill', 1, 4),
+  (104, 'Ivo Chen', 2, 2),
+  (105, 'Rin Vale', 1, 5);
+
+INSERT INTO projects (id, code, department_id) VALUES
+  (201, 'BLACKOUT', 1),
+  (202, 'GLASS-PORT', 3);
+
+INSERT INTO employee_projects (employee_id, project_id) VALUES
+  (101, 201),
+  (102, 202),
+  (103, 201),
+  (105, 201);
 `,
         solutionSql: `
-SELECT name
-FROM sqlite_master
-WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
-ORDER BY name;
+SELECT e.codename, e.clearance_level
+FROM employees e
+INNER JOIN employee_projects ep ON ep.employee_id = e.id
+INNER JOIN projects p ON p.id = ep.project_id
+WHERE p.code = 'BLACKOUT'
+  AND e.clearance_level >= 4
+ORDER BY e.clearance_level DESC, e.codename ASC;
 `,
         hints: [
-          "Use sqlite_master. It stores schema metadata.",
-          "Filter rows to type = 'table' and exclude sqlite internal tables.",
-          "Select only the name column and sort with ORDER BY name.",
+          "This requires a many-to-many join through employee_projects.",
+          "Project filter is p.code = 'BLACKOUT'.",
+          "Sort by clearance desc then codename asc.",
         ],
-        xp: 60,
+        xp: 100,
         orderSensitive: true,
+      },
+      {
+        id: "mutate-1",
+        phase: "MUTATE",
+        title: "Patch And Purge",
+        narrative:
+          "Patch employee 104 into department 3 via COALESCE pattern, then delete project 202 and let cascade remove its assignments.",
+        acceptance: [
+          "Use UPDATE with COALESCE for partial patch behavior.",
+          "Delete project 202 from projects.",
+          "After delete, employee_projects must have no rows pointing to project 202.",
+        ],
+        starterSql: `UPDATE employees
+SET department_id = COALESCE(3, department_id)
+WHERE id = 104;
+
+DELETE FROM projects
+WHERE id = 202;`,
+        mode: "assert",
+        setupSql: `
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE departments (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE employees (
+  id INTEGER PRIMARY KEY,
+  codename TEXT NOT NULL,
+  department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+  clearance_level INTEGER NOT NULL CHECK(clearance_level BETWEEN 1 AND 5)
+);
+
+CREATE TABLE projects (
+  id INTEGER PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE employee_projects (
+  employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  PRIMARY KEY (employee_id, project_id)
+);
+
+INSERT INTO departments (id, name) VALUES
+  (1, 'Cybernetics'),
+  (2, 'Legal'),
+  (3, 'Logistics');
+
+INSERT INTO employees (id, codename, department_id, clearance_level) VALUES
+  (101, 'Nyra Sol', 1, 5),
+  (102, 'Bram Kade', 3, 4),
+  (103, 'Mara Quill', 1, 4),
+  (104, 'Ivo Chen', 2, 2);
+
+INSERT INTO projects (id, code, department_id) VALUES
+  (201, 'BLACKOUT', 1),
+  (202, 'GLASS-PORT', 3);
+
+INSERT INTO employee_projects (employee_id, project_id) VALUES
+  (101, 201),
+  (102, 202),
+  (103, 201);
+`,
+        assertSql: `
+SELECT CASE
+  WHEN (SELECT department_id FROM employees WHERE id = 104) = 3
+   AND NOT EXISTS (SELECT 1 FROM projects WHERE id = 202)
+   AND NOT EXISTS (SELECT 1 FROM employee_projects WHERE project_id = 202)
+  THEN 1 ELSE 0 END AS pass;
+`,
+        requiredTokens: ["UPDATE", "DELETE", "COALESCE"],
+        hints: [
+          "Run UPDATE and DELETE as separate statements.",
+          "The patch pattern uses COALESCE(new_value, existing_value).",
+          "Delete from parent table projects and let CASCADE handle child rows.",
+        ],
+        xp: 100,
+      },
+      {
+        id: "harden-1",
+        phase: "HARDEN",
+        title: "Index And Verify Plan",
+        narrative:
+          "The project assignment lookup is slow. Create an index for employee_projects(project_id), then prove EXPLAIN QUERY PLAN uses it.",
+        acceptance: [
+          "Create index idx_employee_projects_project_id on employee_projects(project_id).",
+          "Run EXPLAIN QUERY PLAN for project_id = 201.",
+          "Plan detail must show index usage, not full scan.",
+        ],
+        starterSql: `CREATE INDEX idx_employee_projects_project_id
+ON employee_projects(project_id);
+
+EXPLAIN QUERY PLAN
+SELECT * FROM employee_projects WHERE project_id = 201;`,
+        mode: "assert",
+        setupSql: `
+CREATE TABLE employee_projects (
+  employee_id INTEGER NOT NULL,
+  project_id INTEGER NOT NULL,
+  PRIMARY KEY (employee_id, project_id)
+);
+
+INSERT INTO employee_projects (employee_id, project_id) VALUES
+  (101, 201),
+  (102, 202),
+  (103, 201),
+  (104, 201),
+  (105, 203),
+  (106, 201),
+  (107, 204),
+  (108, 201),
+  (109, 202),
+  (110, 201);
+`,
+        validate: (db) => {
+          const indexExists = db
+            .query(
+              "SELECT 1 AS ok FROM sqlite_master WHERE type = 'index' AND name = 'idx_employee_projects_project_id';",
+            )
+            .get() as { ok: number } | null;
+
+          if (!indexExists) {
+            return {
+              pass: false,
+              detail: "Required index idx_employee_projects_project_id was not created.",
+            };
+          }
+
+          const plans = db
+            .query("EXPLAIN QUERY PLAN SELECT * FROM employee_projects WHERE project_id = 201;")
+            .all() as Array<{ detail: string }>;
+
+          const usesIndex = plans.some((plan) =>
+            plan.detail.includes("USING INDEX idx_employee_projects_project_id"),
+          );
+
+          if (!usesIndex) {
+            return {
+              pass: false,
+              detail:
+                "Plan does not use idx_employee_projects_project_id yet. Re-check your EXPLAIN QUERY PLAN query.",
+            };
+          }
+
+          return { pass: true };
+        },
+        requiredTokens: ["CREATE INDEX", "EXPLAIN QUERY PLAN"],
+        hints: [
+          "Create index exactly on employee_projects(project_id).",
+          "Use EXPLAIN QUERY PLAN with WHERE project_id = 201.",
+          "Pass condition expects plan detail to include USING INDEX idx_employee_projects_project_id.",
+        ],
+        xp: 120,
       },
     ],
   },

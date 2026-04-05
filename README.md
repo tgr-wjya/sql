@@ -23,11 +23,26 @@ Open `http://localhost:3000`.
 
 ### Gameplay loop
 
-- Read operation briefing and objective
-- Write SQL in the editor
-- Run query and inspect result feedback
+- Read operation briefing and objective phase
+- Write SQL artifacts directly (DDL, INSERT, SELECT, UPDATE/DELETE, INDEX)
+- Run SQL and inspect validation feedback
 - Use hints when blocked (costs XP)
 - Advance after solving each objective
+
+### Workflow simulator phases
+
+The game now supports project-based SQL phases inside operations:
+
+- `ARCHITECT`: design schema and constraints from scratch
+- `POPULATE`: seed realistic data in dependency order
+- `INVESTIGATE`: solve query/evidence objectives
+- `MUTATE`: apply updates/deletes with FK consequences
+- `HARDEN`: optimize with indexes and query plan checks
+
+Validation is behavior-first: you can write your own SQL approach, but hidden checks enforce
+the required database outcomes and integrity rules.
+
+See `docs/WORKFLOW.md` for the learning contract and validation philosophy.
 
 The campaign currently ships 12 operations mapped to core backend SQL topics:
 schema, inserts, filtering, joins, aggregates, HAVING, CTE/subquery, updates/deletes,

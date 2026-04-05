@@ -150,6 +150,19 @@ body {
   letter-spacing: 0.12em;
 }
 
+.mission-header .phase {
+  margin: 8px 0 0;
+  display: inline-block;
+  border: 1px solid rgba(93, 232, 215, 0.45);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.73rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(93, 232, 215, 0.12);
+}
+
 .mission-header h2 {
   margin: 6px 0;
   font-size: 1.42rem;
@@ -159,6 +172,23 @@ body {
   margin: 0;
   color: var(--muted);
   max-width: 72ch;
+}
+
+.acceptance-wrap {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.acceptance-list {
+  margin: 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 6px;
+  color: var(--text);
+  font-size: 0.88rem;
 }
 
 .editor-wrap {

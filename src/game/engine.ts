@@ -6,6 +6,7 @@ import type {
   CampaignNode,
   GameState,
   Objective,
+  ObjectivePhase,
   RunResponse,
   Snapshot,
   SqlRow,
@@ -15,6 +16,10 @@ const HINT_PENALTY_XP = 15;
 
 function objectiveKey(operationId: number, objectiveId: string): string {
   return `${operationId}:${objectiveId}`;
+}
+
+function resolveObjectivePhase(objective: Objective): ObjectivePhase {
+  return objective.phase ?? "INVESTIGATE";
 }
 
 function splitSqlStatements(sql: string): string[] {
@@ -323,8 +328,13 @@ export class GameEngine {
         operationTitle: current.operation.title,
         briefing: current.operation.briefing,
         objectiveId: current.objective.id,
+        objectivePhase: resolveObjectivePhase(current.objective),
+        objectiveNumber: state.objectiveIndex + 1,
+        objectiveTotal: current.operation.objectives.length,
         objectiveTitle: current.objective.title,
         narrative: current.objective.narrative,
+        acceptance: current.objective.acceptance ?? [],
+        starterSql: current.objective.starterSql ?? null,
         hintsUsed,
         hintsRemaining: Math.max(0, current.objective.hints.length - hintsUsed),
         solved: state.solvedKeys.includes(key),

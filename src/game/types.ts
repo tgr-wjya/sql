@@ -2,6 +2,13 @@ import type { Database } from "bun:sqlite";
 
 export type SqlRow = Record<string, unknown>;
 
+export type ObjectivePhase =
+  | "ARCHITECT"
+  | "POPULATE"
+  | "INVESTIGATE"
+  | "MUTATE"
+  | "HARDEN";
+
 export interface ValidationOutcome {
   pass: boolean;
   detail?: string;
@@ -9,8 +16,11 @@ export interface ValidationOutcome {
 
 export interface Objective {
   id: string;
+  phase?: ObjectivePhase;
   title: string;
   narrative: string;
+  acceptance?: string[];
+  starterSql?: string;
   setupSql: string;
   mode: "result" | "assert";
   solutionSql?: string;
@@ -65,8 +75,13 @@ export interface Snapshot {
         operationTitle: string;
         briefing: string;
         objectiveId: string;
+        objectivePhase: ObjectivePhase;
+        objectiveNumber: number;
+        objectiveTotal: number;
         objectiveTitle: string;
         narrative: string;
+        acceptance: string[];
+        starterSql: string | null;
         hintsUsed: number;
         hintsRemaining: number;
         solved: boolean;

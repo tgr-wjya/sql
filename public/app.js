@@ -3,8 +3,10 @@ const elements = {
   xp: document.getElementById("xp"),
   operationList: document.getElementById("operation-list"),
   operationLabel: document.getElementById("operation-label"),
+  phaseLabel: document.getElementById("phase-label"),
   objectiveTitle: document.getElementById("objective-title"),
   objectiveNarrative: document.getElementById("objective-narrative"),
+  acceptanceList: document.getElementById("acceptance-list"),
   sqlInput: document.getElementById("sql-input"),
   runBtn: document.getElementById("run-btn"),
   hintBtn: document.getElementById("hint-btn"),
@@ -18,6 +20,7 @@ const elements = {
 };
 
 let snapshot = null;
+let lastObjectiveKey = null;
 
 function setStatus(message, type = "info") {
   elements.status.textContent = message;
@@ -79,9 +82,11 @@ function renderSnapshot(nextSnapshot) {
 
   if (snapshot.completed || !snapshot.current) {
     elements.operationLabel.textContent = "Campaign Complete";
+    elements.phaseLabel.textContent = "Phase :: Complete";
     elements.objectiveTitle.textContent = "Case closed: DEAD SIGNAL";
     elements.objectiveNarrative.textContent =
       "You have completed every available operation. Reset to replay from OP-01.";
+    elements.acceptanceList.innerHTML = "";
     elements.sqlInput.value = "";
     elements.sqlInput.disabled = true;
     elements.runBtn.disabled = true;
@@ -98,9 +103,22 @@ function renderSnapshot(nextSnapshot) {
   elements.advanceBtn.disabled = false;
 
   const current = snapshot.current;
+  const objectiveKey = `${current.operationId}:${current.objectiveId}`;
+
   elements.operationLabel.textContent = `Operation ${String(current.operationId).padStart(2, "0")} :: ${current.operationCode}`;
+  elements.phaseLabel.textContent = `Phase :: ${current.objectivePhase} (${current.objectiveNumber}/${current.objectiveTotal})`;
   elements.objectiveTitle.textContent = current.objectiveTitle;
   elements.objectiveNarrative.textContent = `${current.narrative} Hints remaining: ${current.hintsRemaining}.`;
+  elements.acceptanceList.innerHTML = (current.acceptance || [])
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+
+  if (objectiveKey !== lastObjectiveKey) {
+    if (!elements.sqlInput.value.trim() && current.starterSql) {
+      elements.sqlInput.value = current.starterSql;
+    }
+    lastObjectiveKey = objectiveKey;
+  }
 
   if (current.solved) {
     setStatus("Objective solved. Advance when ready.", "ok");
@@ -178,6 +196,7 @@ elements.resetBtn.addEventListener("click", async () => {
   if (!confirmed) return;
 
   const next = await apiPost("/api/reset");
+  lastObjectiveKey = null;
   elements.hintLog.innerHTML = "";
   elements.resultWrap.innerHTML = `<p class="muted">Run a query to inspect results.</p>`;
   elements.schemaView.textContent = 'Schema hidden. Use "View Schema".';
