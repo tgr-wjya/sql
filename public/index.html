@@ -67,6 +67,35 @@
         </div>
 
         <p id="status" class="status"></p>
+
+        <section class="playground-shell">
+          <div class="playground-head">
+            <div>
+              <p class="label">Sandbox</p>
+              <h3 class="playground-title">SQL Playground</h3>
+            </div>
+            <p class="playground-copy">
+              Experiment freely here. Reset rebuilds the whole playground database, including any schema you dropped or rewrote.
+            </p>
+          </div>
+
+          <section class="editor-wrap">
+            <label for="playground-input">Playground SQL</label>
+            <textarea
+              id="playground-input"
+              spellcheck="false"
+              placeholder="SELECT * FROM classes;"
+            ></textarea>
+          </section>
+
+          <div class="actions">
+            <button id="playground-run-btn" class="btn btn--primary">Run Playground SQL</button>
+            <button id="playground-schema-btn" class="btn">View Playground Schema</button>
+            <button id="playground-reset-btn" class="btn btn--ghost-inline">Reset Playground</button>
+          </div>
+
+          <p id="playground-status" class="status"></p>
+        </section>
       </section>
 
       <aside class="panel panel--right">
@@ -80,6 +109,14 @@
 
         <h2 class="section-title">Schema</h2>
         <pre id="schema-view" class="schema-view">Schema hidden. Use "View Schema".</pre>
+
+        <h2 class="section-title">Playground Result</h2>
+        <div id="playground-result-wrap" class="result-wrap">
+          <p class="muted">Run playground SQL to inspect results.</p>
+        </div>
+
+        <h2 class="section-title">Playground Schema</h2>
+        <pre id="playground-schema-view" class="schema-view">Playground schema hidden. Use "View Playground Schema".</pre>
       </aside>
     </main>
 

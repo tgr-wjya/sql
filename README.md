@@ -21,6 +21,14 @@ bun run dev
 
 Open `http://localhost:3000`.
 
+### Playground mode
+
+The web console now includes a separate SQL playground with its own reset button.
+
+- It starts with a neutral practice dataset unrelated to the campaign objectives.
+- You can experiment with `CREATE`, `INSERT`, `UPDATE`, `DELETE`, `DROP`, `EXPLAIN`, and `SELECT`.
+- Reset rebuilds the entire playground database from scratch, so a broken schema is recoverable in one click.
+
 ### Gameplay loop
 
 - Read operation briefing and objective phase

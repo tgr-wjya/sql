@@ -17,6 +17,13 @@ const elements = {
   resultWrap: document.getElementById("result-wrap"),
   schemaView: document.getElementById("schema-view"),
   resetBtn: document.getElementById("reset-btn"),
+  playgroundInput: document.getElementById("playground-input"),
+  playgroundRunBtn: document.getElementById("playground-run-btn"),
+  playgroundSchemaBtn: document.getElementById("playground-schema-btn"),
+  playgroundResetBtn: document.getElementById("playground-reset-btn"),
+  playgroundStatus: document.getElementById("playground-status"),
+  playgroundResultWrap: document.getElementById("playground-result-wrap"),
+  playgroundSchemaView: document.getElementById("playground-schema-view"),
 };
 
 let snapshot = null;
@@ -25,6 +32,11 @@ let lastObjectiveKey = null;
 function setStatus(message, type = "info") {
   elements.status.textContent = message;
   elements.status.className = `status ${type}`;
+}
+
+function setPlaygroundStatus(message, type = "info") {
+  elements.playgroundStatus.textContent = message;
+  elements.playgroundStatus.className = `status ${type}`;
 }
 
 function escapeHtml(value) {
@@ -71,6 +83,34 @@ function renderResults(columns, rows) {
     .join("");
 
   elements.resultWrap.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function renderPlaygroundResults(columns, rows) {
+  if (!rows || rows.length === 0) {
+    elements.playgroundResultWrap.innerHTML = `<p class="muted">Query returned no rows.</p>`;
+    return;
+  }
+
+  const resolvedColumns =
+    columns && columns.length > 0 ? columns : Object.keys(rows[0] ?? {});
+
+  const head = resolvedColumns
+    .map((column) => `<th>${escapeHtml(column)}</th>`)
+    .join("");
+
+  const body = rows
+    .map((row) => {
+      const cells = resolvedColumns
+        .map((column) => {
+          const value = row[column] ?? "NULL";
+          return `<td>${escapeHtml(value)}</td>`;
+        })
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  elements.playgroundResultWrap.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
 function renderSnapshot(nextSnapshot) {
@@ -151,8 +191,19 @@ function pushHint(text) {
 }
 
 async function boot() {
-  const state = await apiGet("/api/state");
+  const [state, playgroundState] = await Promise.all([
+    apiGet("/api/state"),
+    apiGet("/api/playground/state"),
+  ]);
   renderSnapshot(state);
+  elements.playgroundInput.value = `-- Starter playground tables already exist.
+-- Try editing data, creating indexes, or dropping tables.
+SELECT *
+FROM classes
+ORDER BY start_time;`;
+  if (playgroundState && playgroundState.ok) {
+    setPlaygroundStatus(playgroundState.message, "info");
+  }
   setStatus("Console synced. Submit SQL when ready.", "info");
 }
 
@@ -202,6 +253,42 @@ elements.resetBtn.addEventListener("click", async () => {
   elements.schemaView.textContent = 'Schema hidden. Use "View Schema".';
   renderSnapshot(next);
   setStatus("Progress reset.", "info");
+});
+
+elements.playgroundRunBtn.addEventListener("click", async () => {
+  const sql = elements.playgroundInput.value;
+  const result = await apiPost("/api/playground/run", { sql });
+
+  renderPlaygroundResults(result.columns, result.rows);
+  setPlaygroundStatus(result.message, result.ok ? "ok" : "fail");
+});
+
+elements.playgroundSchemaBtn.addEventListener("click", async () => {
+  const result = await apiGet("/api/playground/schema");
+  if (result.ok) {
+    elements.playgroundSchemaView.textContent = result.schema || "Playground has no user tables right now.";
+    setPlaygroundStatus(result.message, "info");
+  } else {
+    elements.playgroundSchemaView.textContent = result.message;
+    setPlaygroundStatus(result.message, "fail");
+  }
+});
+
+elements.playgroundResetBtn.addEventListener("click", async () => {
+  const confirmed = window.confirm(
+    "Reset the playground database back to the starter dataset? This also restores dropped tables.",
+  );
+  if (!confirmed) return;
+
+  const result = await apiPost("/api/playground/reset");
+  elements.playgroundResultWrap.innerHTML = `<p class="muted">Run playground SQL to inspect results.</p>`;
+  elements.playgroundSchemaView.textContent =
+    'Playground schema hidden. Use "View Playground Schema".';
+  elements.playgroundInput.value = `-- Playground rebuilt to the starter dataset.
+SELECT *
+FROM classes
+ORDER BY start_time;`;
+  setPlaygroundStatus(result.message, result.ok ? "ok" : "fail");
 });
 
 boot();

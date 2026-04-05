@@ -222,6 +222,24 @@ body {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+#playground-input {
+  width: 100%;
+  min-height: 200px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  padding: 12px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.93rem;
+  resize: vertical;
+}
+
+#playground-input:focus {
+  outline: 1px solid var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
 .actions {
   margin-top: 12px;
   display: flex;
@@ -258,6 +276,11 @@ body {
 .btn--ghost {
   margin-top: 14px;
   width: 100%;
+}
+
+.btn--ghost-inline {
+  background: rgba(255, 189, 112, 0.08);
+  border-color: rgba(255, 189, 112, 0.32);
 }
 
 .status {
@@ -340,6 +363,41 @@ th {
   color: #c7ebe9;
   font-family: "JetBrains Mono", monospace;
   font-size: 0.78rem;
+}
+
+.playground-shell {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background:
+    linear-gradient(180deg, rgba(93, 232, 215, 0.06), rgba(93, 232, 215, 0.01)),
+    rgba(0, 0, 0, 0.14);
+}
+
+.playground-head {
+  display: grid;
+  gap: 8px;
+}
+
+.playground-head .label {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.playground-title {
+  margin: 4px 0 0;
+  font-size: 1.05rem;
+}
+
+.playground-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  max-width: 70ch;
 }
 
 @keyframes rise {

@@ -4,6 +4,9 @@ The SQL documentation is now split by topic for faster learning and lookup.
 
 Start here: `docs/sql/00-map.md`.
 
+If you want a safe place to experiment before solving objectives, use the in-app SQL playground.
+It is isolated from campaign progress and can be fully reset back to its starter schema and data.
+
 ## Modules
 
 1. `docs/sql/01-thinking-and-modeling.md`
