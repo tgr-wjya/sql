@@ -596,24 +596,6 @@ DELETE FROM departments;
 
 ---
 
-## Suggested learning path with this doc
-
-1. **Create the schema** — write all `CREATE TABLE` statements cold, no copy-paste.
-2. **Seed it** — write INSERT statements with realistic data (5–10 rows per table).
-3. **Write these queries manually:**
-   - All patients + their appointment count (LEFT JOIN + GROUP BY)
-   - Doctors with zero appointments (LEFT JOIN + IS NULL)
-   - Patients with more than 2 conditions (junction table + HAVING)
-   - All appointments in the last 30 days with patient + doctor name (multi-JOIN)
-   - Cancel all appointments for a specific patient in a transaction
-   - Partial update: update only the notes field of a doctor record
-4. **Add indexes** — after the queries work, look at which columns you're filtering on and add indexes.
-5. **Break something** — try deleting a department that has doctors. See what the FK does. Then try `CASCADE`.
-
-Once all of that is comfortable: open the bun:sqlite doc, and the task API migration will make complete sense.
-
----
-
 ## External resources
 
 | Resource | What for |
