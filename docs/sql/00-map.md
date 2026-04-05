@@ -1,6 +1,8 @@
 # SQL Learning Map
 
-This folder splits the SQL reference into focused modules.
+This folder breaks SQL into focused modules you can study in order or use as a lookup set.
+
+The examples are intentionally drawn from unrelated domains so you can learn the pattern, not memorize one project shape.
 
 ## Suggested order
 
@@ -19,10 +21,9 @@ This folder splits the SQL reference into focused modules.
 13. `13-seeding-and-order.md`
 14. `14-practice-resources.md`
 
-## Phase mapping (DEAD SIGNAL)
+## Topic clusters
 
-- `ARCHITECT` -> 01, 02
-- `POPULATE` -> 03, 13
-- `INVESTIGATE` -> 03, 04, 05, 06, 10, 11
-- `MUTATE` -> 07, 08
-- `HARDEN` -> 09, 12
+- Modeling: `01`, `02`
+- Reading data: `03`, `04`, `05`, `06`, `10`, `11`
+- Writing data: `07`, `08`, `13`
+- Performance and portability: `09`, `12`

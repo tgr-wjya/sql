@@ -1,25 +1,32 @@
 # 08 - Transactions
 
-Use transactions when multiple writes must succeed or fail together.
+Use a transaction when several writes must either all succeed or all fail.
 
 ```sql
 BEGIN;
 
-UPDATE accounts SET balance = balance - 5000 WHERE id = 'ACC-1';
-UPDATE accounts SET balance = balance + 5000 WHERE id = 'ACC-2';
-INSERT INTO audit_logs (id, note) VALUES ('AUD-77', 'sealed transfer');
+UPDATE gift_cards
+SET balance = balance - 250
+WHERE id = 'GC-1001';
+
+UPDATE gift_cards
+SET balance = balance + 250
+WHERE id = 'GC-2044';
+
+INSERT INTO transfer_log (id, note)
+VALUES ('TR-77', 'moved balance between gift cards');
 
 COMMIT;
 ```
 
-If any step fails before `COMMIT`, use:
+If something goes wrong before `COMMIT`, roll back the whole set:
 
 ```sql
 ROLLBACK;
 ```
 
-## Why it matters
+## Why transactions matter
 
-- Prevents partial writes.
-- Keeps business invariants consistent.
-- Essential for money/state changes.
+- They prevent half-finished writes.
+- They protect invariants across multiple statements.
+- They matter for balances, inventory, reservations, and state transitions.

@@ -1,11 +1,11 @@
 # 12 - SQLite vs PostgreSQL
 
-Most SQL concepts transfer directly. Key differences:
+Most relational ideas transfer directly between SQLite and PostgreSQL, but some behavior differs.
 
-- FK enforcement: SQLite needs `PRAGMA foreign_keys = ON`; PostgreSQL always enforces.
-- Type strictness: SQLite is flexible; PostgreSQL is strict.
-- `UPDATE ... FROM`: PostgreSQL supports it; SQLite usually needs subquery approach.
-- `FULL OUTER JOIN`: PostgreSQL supports; SQLite does not natively.
-- Concurrent writes: PostgreSQL handles high concurrency better.
+- Foreign keys: SQLite requires `PRAGMA foreign_keys = ON`; PostgreSQL enforces them by default.
+- Typing: SQLite is flexible with column types; PostgreSQL is stricter.
+- Feature set: PostgreSQL supports features such as `FULL OUTER JOIN` and `UPDATE ... FROM`.
+- Concurrency: PostgreSQL handles many concurrent writers much better.
+- Deployment style: SQLite is file-based; PostgreSQL runs as a database server.
 
-Practical rule: learn relational logic in SQLite, then adjust syntax/types when moving to PostgreSQL.
+Practical rule: learn modeling, joins, aggregation, and constraints first. Then adjust syntax and operational details for the database you deploy.

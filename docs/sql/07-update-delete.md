@@ -2,28 +2,41 @@
 
 ## UPDATE
 
+Update only the rows you actually intend to change.
+
 ```sql
-UPDATE employees
-SET clearance_level = 5
-WHERE id = 101;
+UPDATE events
+SET status = 'published'
+WHERE id = 102;
 ```
 
-Patch pattern with `COALESCE`:
+Patch-style update with `COALESCE`:
 
 ```sql
-UPDATE employees
+UPDATE customer_profiles
 SET
-  codename = COALESCE($codename, codename),
-  department_id = COALESCE($department_id, department_id)
+  display_name = COALESCE($display_name, display_name),
+  favorite_genre = COALESCE($favorite_genre, favorite_genre)
 WHERE id = $id;
 ```
 
 ## DELETE
 
 ```sql
-DELETE FROM employee_projects
-WHERE employee_id = 101
-  AND project_id = 201;
+DELETE FROM cart_items
+WHERE cart_id = 88
+  AND product_id = 14;
 ```
 
-Deleting parent rows depends on FK delete behavior (`RESTRICT`, `CASCADE`, `SET NULL`).
+## Safety habit
+
+Write the matching `SELECT` first:
+
+```sql
+SELECT *
+FROM cart_items
+WHERE cart_id = 88
+  AND product_id = 14;
+```
+
+If the `SELECT` returns the right rows, then convert it into `UPDATE` or `DELETE`.

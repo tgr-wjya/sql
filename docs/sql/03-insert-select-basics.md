@@ -3,30 +3,38 @@
 ## INSERT
 
 ```sql
-INSERT INTO departments (id, name) VALUES (1, 'Cybernetics');
+INSERT INTO venues (id, name, city)
+VALUES (1, 'Riverside Hall', 'Chiang Mai');
 
-INSERT INTO employees (id, codename, department_id, clearance_level) VALUES
-  (101, 'Nyra Sol', 1, 5),
-  (102, 'Bram Kade', 1, 4);
+INSERT INTO events (id, title, venue_id, starts_at, ticket_price, status) VALUES
+  (101, 'Ceramics for Beginners', 1, '2026-06-10 10:00:00', 450, 'published'),
+  (102, 'Night Market Sketch Walk', 1, '2026-06-11 18:30:00', 300, 'draft');
 ```
+
+Use explicit column lists so inserts stay safe when the schema changes.
 
 ## SELECT building order
 
-Think in this sequence:
+Think about a query in this order:
 
-`FROM` -> `WHERE` -> `GROUP BY` -> `HAVING` -> `ORDER BY` -> `LIMIT`.
+`FROM` -> `WHERE` -> `GROUP BY` -> `HAVING` -> `ORDER BY` -> `LIMIT`
 
 ```sql
-SELECT codename, clearance_level
-FROM employees
-WHERE clearance_level >= 4
-ORDER BY clearance_level DESC, codename ASC
+SELECT title, ticket_price
+FROM events
+WHERE status = 'published'
+  AND ticket_price <= 500
+ORDER BY starts_at ASC
 LIMIT 10;
 ```
 
 ## Common filters
 
-- Pattern: `LIKE 'Neo%'`
-- List: `IN ('active', 'inactive')`
-- Range: `BETWEEN 1 AND 5`
-- Null checks: `IS NULL` / `IS NOT NULL`
+- Pattern match: `title LIKE 'Night%'`
+- Membership: `status IN ('draft', 'published')`
+- Range: `ticket_price BETWEEN 200 AND 500`
+- Null checks: `ended_at IS NULL`
+
+## Small habit that helps
+
+Start with `SELECT *` while exploring, then replace it with just the columns you actually need.

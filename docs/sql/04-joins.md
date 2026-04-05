@@ -1,42 +1,48 @@
 # 04 - JOINs
 
+JOINs combine rows across related tables.
+
 ## INNER JOIN
 
-Returns only matching rows on both sides.
+Returns only rows with a match on both sides.
 
 ```sql
-SELECT e.codename, d.name AS department
-FROM employees e
-INNER JOIN departments d ON d.id = e.department_id;
+SELECT e.title, v.name AS venue_name
+FROM events e
+INNER JOIN venues v ON v.id = e.venue_id;
 ```
 
 ## LEFT JOIN
 
-Returns all rows from left table and `NULL` when no match on right.
+Returns every row from the left table, even when no match exists on the right.
 
 ```sql
-SELECT d.name, COUNT(e.id) AS employee_count
-FROM departments d
-LEFT JOIN employees e ON e.department_id = d.id
-GROUP BY d.id, d.name;
+SELECT v.name, COUNT(e.id) AS event_count
+FROM venues v
+LEFT JOIN events e ON e.venue_id = v.id
+GROUP BY v.id, v.name;
 ```
 
-## Orphan pattern
+## Find missing relationships
+
+This pattern is useful for spotting rows with no related records.
 
 ```sql
-SELECT d.name
-FROM departments d
-LEFT JOIN employees e ON e.department_id = d.id
+SELECT v.name
+FROM venues v
+LEFT JOIN events e ON e.venue_id = v.id
 WHERE e.id IS NULL;
 ```
 
-## Many-to-many joins
+## Many-to-many example
 
-Always join through the junction table.
+Suppose recipes can use many ingredients, and each ingredient can appear in many recipes.
 
 ```sql
-SELECT e.codename, p.code
-FROM employees e
-INNER JOIN employee_projects ep ON ep.employee_id = e.id
-INNER JOIN projects p ON p.id = ep.project_id;
+SELECT r.name, i.name AS ingredient
+FROM recipes r
+INNER JOIN recipe_ingredients ri ON ri.recipe_id = r.id
+INNER JOIN ingredients i ON i.id = ri.ingredient_id;
 ```
+
+The junction table is what turns two one-to-many links into a many-to-many model.

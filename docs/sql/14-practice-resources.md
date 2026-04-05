@@ -1,8 +1,8 @@
 # 14 - Practice Resources
 
-- [SQLiteTutorial.net](https://www.sqlitetutorial.net/) - SQLite syntax and examples.
-- [pgexercises.com](https://pgexercises.com/) - interactive PostgreSQL drills.
-- [sql-practice.com](https://www.sql-practice.com/) - query practice by scenario.
-- [use-the-index-luke.com](https://use-the-index-luke.com/) - indexing and performance.
+- [SQLiteTutorial.net](https://www.sqlitetutorial.net/) - SQLite syntax, walkthroughs, and short examples.
+- [pgexercises.com](https://pgexercises.com/) - interactive PostgreSQL practice.
+- [sql-practice.com](https://www.sql-practice.com/) - scenario-based query drills.
+- [use-the-index-luke.com](https://use-the-index-luke.com/) - indexing and query performance.
 
-Use these for extra repetitions when a specific phase keeps failing.
+Use these when you want more repetition than the notes in this folder provide.

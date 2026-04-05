@@ -1,27 +1,40 @@
 # 11 - Window Functions
 
-Window functions compute across related rows without collapsing output like `GROUP BY`.
+Window functions calculate across related rows without collapsing the result like `GROUP BY` does.
 
-## Ranking
+## Ranking example
 
 ```sql
 SELECT
-  executive,
-  month,
-  score,
-  DENSE_RANK() OVER (PARTITION BY month ORDER BY score DESC) AS rank_in_month
-FROM suspicion_scores;
+  artist_name,
+  festival_day,
+  audience_score,
+  DENSE_RANK() OVER (
+    PARTITION BY festival_day
+    ORDER BY audience_score DESC
+  ) AS rank_for_day
+FROM performance_reviews;
 ```
 
 ## Previous row value
 
 ```sql
 SELECT
-  executive,
-  month,
-  score,
-  LAG(score) OVER (PARTITION BY executive ORDER BY month) AS prev_score
-FROM suspicion_scores;
+  route_name,
+  recorded_on,
+  riders,
+  LAG(riders) OVER (
+    PARTITION BY route_name
+    ORDER BY recorded_on
+  ) AS previous_day_riders
+FROM ridership_snapshots;
 ```
 
-Common functions: `ROW_NUMBER`, `RANK`, `DENSE_RANK`, `LAG`, `LEAD`.
+Common window functions:
+
+- `ROW_NUMBER`
+- `RANK`
+- `DENSE_RANK`
+- `LAG`
+- `LEAD`
+- `SUM(...) OVER (...)`

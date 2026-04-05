@@ -1,26 +1,33 @@
 # 10 - NULL Semantics
 
-`NULL` means unknown/absent, not zero and not empty string.
+`NULL` means "missing" or "unknown." It does not mean zero, false, or empty text.
 
 ## Correct checks
 
 ```sql
-SELECT * FROM employees WHERE badge_id IS NULL;
-SELECT * FROM employees WHERE badge_id IS NOT NULL;
+SELECT *
+FROM library_members
+WHERE phone_number IS NULL;
+
+SELECT *
+FROM library_members
+WHERE phone_number IS NOT NULL;
 ```
 
-Never use `= NULL`.
+Never write `= NULL`.
 
-## Helpers
+## Useful helpers
 
 ```sql
-SELECT COALESCE(email, 'no-email') AS contact
-FROM employees;
+SELECT COALESCE(nickname, full_name) AS display_name
+FROM library_members;
 ```
 
 ```sql
-SELECT total / NULLIF(count, 0)
-FROM metrics;
+SELECT total_pages / NULLIF(chapter_count, 0)
+FROM manuscripts;
 ```
 
-`NULLIF` helps avoid divide-by-zero runtime errors.
+`COALESCE` gives you the first non-null value.
+
+`NULLIF(a, b)` returns `NULL` when `a = b`, which is handy for avoiding divide-by-zero errors.

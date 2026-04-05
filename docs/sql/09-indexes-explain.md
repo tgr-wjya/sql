@@ -1,32 +1,32 @@
 # 09 - Indexes And EXPLAIN QUERY PLAN
 
-Indexes speed read paths by avoiding full table scans.
+Indexes help the database find rows faster, especially as tables grow.
 
 ```sql
-CREATE INDEX idx_employee_projects_project_id
-ON employee_projects(project_id);
+CREATE INDEX idx_bookings_cabin_id
+ON bookings(cabin_id);
 ```
 
-Inspect plan:
+Inspect the plan:
 
 ```sql
 EXPLAIN QUERY PLAN
 SELECT *
-FROM employee_projects
-WHERE project_id = 201;
+FROM bookings
+WHERE cabin_id = 12;
 ```
 
-Look for:
+## What to look for
 
-- `SCAN` -> full scan (usually slower at scale).
-- `SEARCH ... USING INDEX` -> index-assisted lookup.
+- `SCAN`: full-table scan
+- `SEARCH ... USING INDEX`: index-assisted lookup
 
-## When to index
+## Good candidates for indexes
 
-- Frequent `WHERE` columns.
-- Join keys.
-- Sort-heavy columns.
+- Columns used often in `WHERE`
+- Foreign keys used in joins
+- Columns used often in `ORDER BY`
 
-## Cost
+## Tradeoff
 
-More indexes = slower writes (`INSERT`, `UPDATE`, `DELETE`).
+Every extra index also adds write cost for `INSERT`, `UPDATE`, and `DELETE`.

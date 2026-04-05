@@ -1,36 +1,52 @@
 # 02 - Schema Design And Constraints
 
-Use constraints to enforce business rules at the database layer.
+Constraints let the database reject bad data before your application has to deal with it.
 
 ```sql
 PRAGMA foreign_keys = ON;
 
-CREATE TABLE departments (
+CREATE TABLE venues (
   id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE
+  name TEXT NOT NULL UNIQUE,
+  city TEXT NOT NULL
 );
 
-CREATE TABLE employees (
+CREATE TABLE events (
   id INTEGER PRIMARY KEY,
-  codename TEXT NOT NULL,
-  department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
-  clearance_level INTEGER NOT NULL CHECK(clearance_level BETWEEN 1 AND 5)
+  title TEXT NOT NULL,
+  venue_id INTEGER NOT NULL REFERENCES venues(id) ON DELETE RESTRICT,
+  starts_at TEXT NOT NULL,
+  ticket_price NUMERIC NOT NULL CHECK(ticket_price >= 0),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'published', 'cancelled'))
 );
 ```
 
-## Constraints to master
+## Constraints to know well
 
-- `PRIMARY KEY`: unique identity.
-- `NOT NULL`: required value.
-- `UNIQUE`: no duplicates.
-- `REFERENCES`: relational link.
-- `CHECK`: bounded/validated values.
-- `DEFAULT`: fallback value.
+- `PRIMARY KEY`: row identity.
+- `NOT NULL`: value must exist.
+- `UNIQUE`: no duplicate values in that column or column set.
+- `REFERENCES`: child row must point at a valid parent row.
+- `CHECK`: value must satisfy a rule.
+- `DEFAULT`: value used when one is not supplied.
+
+## Composite rule example
+
+```sql
+CREATE TABLE seat_reservations (
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  seat_label TEXT NOT NULL,
+  reserved_by TEXT NOT NULL,
+  PRIMARY KEY (event_id, seat_label)
+);
+```
+
+This means one seat can only be reserved once per event.
 
 ## ON DELETE behaviors
 
-- `RESTRICT` / `NO ACTION`: block parent delete.
-- `CASCADE`: delete dependent rows.
-- `SET NULL`: null child FK.
+- `RESTRICT` or `NO ACTION`: parent row cannot be deleted while children exist.
+- `CASCADE`: deleting the parent also deletes dependent rows.
+- `SET NULL`: child remains, but loses the link.
 
-Use `RESTRICT` for core ownership and `CASCADE` for dependent data you never want orphaned.
+Choose delete behavior based on meaning, not convenience.

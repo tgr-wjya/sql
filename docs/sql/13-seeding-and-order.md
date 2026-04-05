@@ -1,21 +1,23 @@
 # 13 - Seeding And Dependency Order
 
-Insert parent tables before child tables.
+When seeding relational data, insert parent rows before child rows.
 
-Example order:
+Example order for a shop dataset:
 
-1. `departments`
-2. `employees`
-3. `projects`
-4. `employee_projects`
+1. `categories`
+2. `products`
+3. `customers`
+4. `orders`
+5. `order_items`
 
-Delete in reverse order during reset.
+Reset in reverse order:
 
 ```sql
-DELETE FROM employee_projects;
-DELETE FROM projects;
-DELETE FROM employees;
-DELETE FROM departments;
+DELETE FROM order_items;
+DELETE FROM orders;
+DELETE FROM products;
+DELETE FROM customers;
+DELETE FROM categories;
 ```
 
-If you hit FK violations, fix seed order first. Do not disable FK enforcement.
+If foreign key errors appear during seeding, check row order before changing anything else.
