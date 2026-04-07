@@ -24,8 +24,12 @@ function serveStatic(fileName: string, contentType: string): Response {
 export function startServer(): void {
   const app = new Elysia()
     .get("/", () => serveStatic("index.html", "text/html; charset=utf-8"))
-    .get("/styles.css", () => serveStatic("styles.css", "text/css; charset=utf-8"))
-    .get("/app.js", () => serveStatic("app.js", "application/javascript; charset=utf-8"))
+    .get("/styles.css", () =>
+      serveStatic("styles.css", "text/css; charset=utf-8"),
+    )
+    .get("/app.js", () =>
+      serveStatic("app.js", "application/javascript; charset=utf-8"),
+    )
     .get("/api/state", () => engine.snapshot())
     .get("/api/schema", () => engine.schema())
     .get("/api/playground/state", () => playground.state())
@@ -58,5 +62,7 @@ export function startServer(): void {
     .post("/api/playground/reset", () => playground.reset())
     .listen(3000);
 
-  console.log(`DEAD SIGNAL web console running at http://${app.server?.hostname}:${app.server?.port}`);
+  console.log(
+    `DEAD SIGNAL web console running at http://${app.server?.hostname}:${app.server?.port}`,
+  );
 }
