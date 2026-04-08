@@ -7,38 +7,38 @@ import type { GameState } from "./types";
 const PROGRESS_DB_PATH = resolve(process.cwd(), "data", "progress.db");
 
 const DEFAULT_STATE: GameState = {
-  xp: 0,
-  rank: "GHOST",
-  operationIndex: 0,
-  objectiveIndex: 0,
-  solvedKeys: [],
-  hintsUsed: {},
+	xp: 0,
+	rank: "GHOST",
+	operationIndex: 0,
+	objectiveIndex: 0,
+	solvedKeys: [],
+	hintsUsed: {},
 };
 
 function safeParseJson<T>(value: string, fallback: T): T {
-  try {
-    const parsed = JSON.parse(value) as T;
-    return parsed;
-  } catch {
-    return fallback;
-  }
+	try {
+		const parsed = JSON.parse(value) as T;
+		return parsed;
+	} catch {
+		return fallback;
+	}
 }
 
 export function rankFromXp(xp: number): string {
-  if (xp >= 1800) return "CIPHER";
-  if (xp >= 1200) return "OPERATIVE";
-  if (xp >= 700) return "INVESTIGATOR";
-  if (xp >= 300) return "ANALYST";
-  return "GHOST";
+	if (xp >= 1800) return "CIPHER";
+	if (xp >= 1200) return "OPERATIVE";
+	if (xp >= 700) return "INVESTIGATOR";
+	if (xp >= 300) return "ANALYST";
+	return "GHOST";
 }
 
 export class ProgressStore {
-  private readonly db: Database;
+	private readonly db: Database;
 
-  constructor() {
-    mkdirSync(dirname(PROGRESS_DB_PATH), { recursive: true });
-    this.db = new Database(PROGRESS_DB_PATH);
-    this.db.exec(`
+	constructor() {
+		mkdirSync(dirname(PROGRESS_DB_PATH), { recursive: true });
+		this.db = new Database(PROGRESS_DB_PATH);
+		this.db.exec(`
       CREATE TABLE IF NOT EXISTS state (
         id INTEGER PRIMARY KEY CHECK (id = 1),
         xp INTEGER NOT NULL,
@@ -49,20 +49,20 @@ export class ProgressStore {
         hints_json TEXT NOT NULL
       );
     `);
-    this.ensureState();
-  }
+		this.ensureState();
+	}
 
-  private ensureState(): void {
-    const existing = this.db.query("SELECT id FROM state WHERE id = 1;").get();
-    if (!existing) {
-      this.save(DEFAULT_STATE);
-    }
-  }
+	private ensureState(): void {
+		const existing = this.db.query("SELECT id FROM state WHERE id = 1;").get();
+		if (!existing) {
+			this.save(DEFAULT_STATE);
+		}
+	}
 
-  load(): GameState {
-    const row = this.db
-      .query(
-        `
+	load(): GameState {
+		const row = this.db
+			.query(
+				`
           SELECT
             xp,
             rank,
@@ -73,45 +73,45 @@ export class ProgressStore {
           FROM state
           WHERE id = 1;
         `,
-      )
-      .get() as
-      | {
-          xp: number;
-          rank: string;
-          operation_index: number;
-          objective_index: number;
-          solved_json: string;
-          hints_json: string;
-        }
-      | undefined;
+			)
+			.get() as
+			| {
+					xp: number;
+					rank: string;
+					operation_index: number;
+					objective_index: number;
+					solved_json: string;
+					hints_json: string;
+			  }
+			| undefined;
 
-    if (!row) {
-      this.save(DEFAULT_STATE);
-      return { ...DEFAULT_STATE };
-    }
+		if (!row) {
+			this.save(DEFAULT_STATE);
+			return { ...DEFAULT_STATE };
+		}
 
-    const solvedKeys = safeParseJson<string[]>(row.solved_json, []);
-    const hintsUsed = safeParseJson<Record<string, number>>(row.hints_json, {});
+		const solvedKeys = safeParseJson<string[]>(row.solved_json, []);
+		const hintsUsed = safeParseJson<Record<string, number>>(row.hints_json, {});
 
-    return {
-      xp: row.xp,
-      rank: rankFromXp(row.xp),
-      operationIndex: row.operation_index,
-      objectiveIndex: row.objective_index,
-      solvedKeys,
-      hintsUsed,
-    };
-  }
+		return {
+			xp: row.xp,
+			rank: rankFromXp(row.xp),
+			operationIndex: row.operation_index,
+			objectiveIndex: row.objective_index,
+			solvedKeys,
+			hintsUsed,
+		};
+	}
 
-  save(state: GameState): void {
-    const next: GameState = {
-      ...state,
-      rank: rankFromXp(state.xp),
-    };
+	save(state: GameState): void {
+		const next: GameState = {
+			...state,
+			rank: rankFromXp(state.xp),
+		};
 
-    this.db
-      .query(
-        `
+		this.db
+			.query(
+				`
           INSERT INTO state (
             id,
             xp,
@@ -138,19 +138,19 @@ export class ProgressStore {
             solved_json = excluded.solved_json,
             hints_json = excluded.hints_json;
         `,
-      )
-      .run({
-        $xp: next.xp,
-        $rank: next.rank,
-        $operationIndex: next.operationIndex,
-        $objectiveIndex: next.objectiveIndex,
-        $solvedJson: JSON.stringify(next.solvedKeys),
-        $hintsJson: JSON.stringify(next.hintsUsed),
-      });
-  }
+			)
+			.run({
+				$xp: next.xp,
+				$rank: next.rank,
+				$operationIndex: next.operationIndex,
+				$objectiveIndex: next.objectiveIndex,
+				$solvedJson: JSON.stringify(next.solvedKeys),
+				$hintsJson: JSON.stringify(next.hintsUsed),
+			});
+	}
 
-  reset(): GameState {
-    this.save(DEFAULT_STATE);
-    return { ...DEFAULT_STATE };
-  }
+	reset(): GameState {
+		this.save(DEFAULT_STATE);
+		return { ...DEFAULT_STATE };
+	}
 }
