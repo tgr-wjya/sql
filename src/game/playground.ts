@@ -2,68 +2,17 @@ import { Database } from "bun:sqlite";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-import type { SqlRow } from "./types";
+import type {
+  PlaygroundColumn,
+  PlaygroundForeignKeyEdge,
+  PlaygroundGraph,
+  PlaygroundTableGraphNode,
+  SqlRow,
+} from "./types";
 
 const PLAYGROUND_DB_PATH = resolve(process.cwd(), "data", "playground.db");
 
-const PLAYGROUND_BOOTSTRAP_SQL = `
-PRAGMA foreign_keys = ON;
-
-CREATE TABLE studios (
-  id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
-  city TEXT NOT NULL
-);
-
-CREATE TABLE classes (
-  id INTEGER PRIMARY KEY,
-  studio_id INTEGER NOT NULL REFERENCES studios(id) ON DELETE RESTRICT,
-  title TEXT NOT NULL,
-  instructor TEXT NOT NULL,
-  start_time TEXT NOT NULL,
-  price NUMERIC NOT NULL CHECK(price >= 0),
-  difficulty TEXT NOT NULL CHECK(difficulty IN ('intro', 'regular', 'advanced'))
-);
-
-CREATE TABLE attendees (
-  id INTEGER PRIMARY KEY,
-  full_name TEXT NOT NULL,
-  email TEXT UNIQUE,
-  membership_tier TEXT NOT NULL DEFAULT 'drop-in'
-    CHECK(membership_tier IN ('drop-in', 'monthly', 'annual'))
-);
-
-CREATE TABLE class_registrations (
-  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
-  attendee_id INTEGER NOT NULL REFERENCES attendees(id) ON DELETE CASCADE,
-  booked_at TEXT NOT NULL,
-  PRIMARY KEY (class_id, attendee_id)
-);
-
-INSERT INTO studios (id, name, city) VALUES
-  (1, 'North Window Studio', 'Bangkok'),
-  (2, 'Harbor Clay Lab', 'Chiang Mai'),
-  (3, 'Sunline Workshop', 'Phuket');
-
-INSERT INTO classes (id, studio_id, title, instructor, start_time, price, difficulty) VALUES
-  (101, 1, 'Wheel Basics', 'Mina Hale', '2026-05-08 09:00:00', 600, 'intro'),
-  (102, 1, 'Glaze Mixing', 'Pree Tan', '2026-05-08 14:00:00', 450, 'regular'),
-  (103, 2, 'Handbuilding Studio', 'Risa Cole', '2026-05-09 10:30:00', 550, 'intro'),
-  (104, 3, 'Large Form Throwing', 'Niran Voss', '2026-05-10 13:30:00', 900, 'advanced');
-
-INSERT INTO attendees (id, full_name, email, membership_tier) VALUES
-  (201, 'Ari Mercer', 'ari@example.com', 'monthly'),
-  (202, 'June Hollow', 'june@example.com', 'drop-in'),
-  (203, 'Theo Marden', NULL, 'annual'),
-  (204, 'Sana Quill', 'sana@example.com', 'monthly');
-
-INSERT INTO class_registrations (class_id, attendee_id, booked_at) VALUES
-  (101, 201, '2026-05-01 08:10:00'),
-  (101, 202, '2026-05-02 11:45:00'),
-  (102, 204, '2026-05-03 15:20:00'),
-  (103, 201, '2026-05-04 09:30:00'),
-  (104, 203, '2026-05-05 18:05:00');
-`;
+const PLAYGROUND_META_TABLE = "__playground_meta";
 
 function splitSqlStatements(sql: string): string[] {
   const statements: string[] = [];
@@ -172,12 +121,7 @@ export class PlaygroundStore {
   }
 
   private createDatabase(): Database {
-    const needsBootstrap = !existsSync(PLAYGROUND_DB_PATH);
-    const db = new Database(PLAYGROUND_DB_PATH);
-    if (needsBootstrap) {
-      db.exec(PLAYGROUND_BOOTSTRAP_SQL);
-    }
-    return db;
+    return new Database(PLAYGROUND_DB_PATH);
   }
 
   run(sql: string): { ok: boolean; message: string; rows: SqlRow[]; columns: string[] } {
@@ -210,6 +154,33 @@ export class PlaygroundStore {
     }
   }
 
+  graph(): { ok: boolean; graph: PlaygroundGraph; message: string } {
+    try {
+      const graph = this.buildGraph();
+      return {
+        ok: true,
+        graph,
+        message:
+          graph.foreignKeys.length > 0
+            ? "Playground relationship graph loaded."
+            : graph.tables.length > 0
+              ? "Playground schema loaded, but no foreign keys were found."
+              : "Playground has no user tables right now.",
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown graph error.";
+      return {
+        ok: false,
+        graph: {
+          tables: [],
+          foreignKeys: [],
+          generatedAt: new Date().toISOString(),
+        },
+        message: `SQL error: ${message}`,
+      };
+    }
+  }
+
   schema(): { ok: boolean; schema: string; message: string } {
     try {
       const rows = this.db
@@ -219,6 +190,7 @@ export class PlaygroundStore {
             FROM sqlite_master
             WHERE type = 'table'
               AND name NOT LIKE 'sqlite_%'
+              AND name != '${PLAYGROUND_META_TABLE}'
             ORDER BY name;
           `,
         )
@@ -244,25 +216,161 @@ export class PlaygroundStore {
     }
   }
 
-  reset(): { ok: boolean; message: string; starterSql: string } {
+  reset(seedKey: string, setupSql: string, starterSql: string): {
+    ok: boolean;
+    message: string;
+    starterSql: string;
+  } {
+    this.rebuild(seedKey, setupSql);
+    return {
+      ok: true,
+      message: "Playground reset to the current objective schema.",
+      starterSql: starterSql.trim(),
+    };
+  }
+
+  state(seedKey: string, setupSql: string, starterSql: string): {
+    ok: boolean;
+    starterSql: string;
+    message: string;
+  } {
+    const changed = this.ensureSeed(seedKey, setupSql);
+    return {
+      ok: true,
+      starterSql: starterSql.trim(),
+      message: changed
+        ? "Playground synced to the current objective schema."
+        : "Playground ready for the current objective schema.",
+    };
+  }
+
+  private buildGraph(): PlaygroundGraph {
+    const tableRows = this.db
+      .query(
+        `
+          SELECT name
+          FROM sqlite_master
+          WHERE type = 'table'
+            AND name NOT LIKE 'sqlite_%'
+            AND name != '${PLAYGROUND_META_TABLE}'
+          ORDER BY name;
+        `,
+      )
+      .all() as Array<{ name: string }>;
+
+    const tables: PlaygroundTableGraphNode[] = tableRows.map((row) => ({
+      name: row.name,
+      columns: this.tableColumns(row.name),
+    }));
+
+    const foreignKeys: PlaygroundForeignKeyEdge[] = [];
+
+    for (const table of tables) {
+      const rows = this.db.query(`PRAGMA foreign_key_list(${table.name});`).all() as Array<{
+        id: number;
+        seq: number;
+        table: string;
+        from: string;
+        to: string;
+      }>;
+
+      for (const row of rows) {
+        foreignKeys.push({
+          id: `${table.name}:${row.id}:${row.seq}`,
+          fromTable: table.name,
+          fromColumn: row.from,
+          toTable: row.table,
+          toColumn: row.to,
+        });
+      }
+    }
+
+    foreignKeys.sort((left, right) =>
+      `${left.fromTable}.${left.fromColumn}->${left.toTable}.${left.toColumn}`.localeCompare(
+        `${right.fromTable}.${right.fromColumn}->${right.toTable}.${right.toColumn}`,
+      ),
+    );
+
+    return {
+      tables,
+      foreignKeys,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  private tableColumns(tableName: string): PlaygroundColumn[] {
+    const rows = this.db.query(`PRAGMA table_info(${tableName});`).all() as Array<{
+      name: string;
+      type: string;
+      notnull: number;
+      pk: number;
+    }>;
+
+    return rows.map((row) => ({
+      name: row.name,
+      type: row.type || "TEXT",
+      notNull: row.notnull === 1,
+      primaryKeyOrder: row.pk,
+    }));
+  }
+
+  private ensureSeed(seedKey: string, setupSql: string): boolean {
+    const currentSeedKey = this.readSeedKey();
+    if (currentSeedKey === seedKey) {
+      return false;
+    }
+    this.rebuild(seedKey, setupSql);
+    return true;
+  }
+
+  private rebuild(seedKey: string, setupSql: string): void {
     this.db.close(false);
     if (existsSync(PLAYGROUND_DB_PATH)) {
       rmSync(PLAYGROUND_DB_PATH);
     }
     this.db = this.createDatabase();
-
-    return {
-      ok: true,
-      message: "Playground reset to the starter dataset.",
-      starterSql: PLAYGROUND_BOOTSTRAP_SQL.trim(),
-    };
+    this.db.exec("PRAGMA foreign_keys = ON;");
+    if (setupSql.trim().length > 0) {
+      this.db.exec(setupSql);
+    }
+    this.writeSeedKey(seedKey);
   }
 
-  state(): { ok: boolean; starterSql: string; message: string } {
-    return {
-      ok: true,
-      starterSql: PLAYGROUND_BOOTSTRAP_SQL.trim(),
-      message: "Playground ready.",
-    };
+  private readSeedKey(): string | null {
+    const metaTableExists = this.db
+      .query(
+        `SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = '${PLAYGROUND_META_TABLE}';`,
+      )
+      .get() as { ok: number } | null;
+
+    if (!metaTableExists) {
+      return null;
+    }
+
+    const row = this.db
+      .query(`SELECT seed_key FROM ${PLAYGROUND_META_TABLE} WHERE id = 1;`)
+      .get() as { seed_key: string } | null;
+
+    return row?.seed_key ?? null;
+  }
+
+  private writeSeedKey(seedKey: string): void {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS ${PLAYGROUND_META_TABLE} (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        seed_key TEXT NOT NULL
+      );
+    `);
+
+    this.db
+      .query(
+        `
+          INSERT INTO ${PLAYGROUND_META_TABLE} (id, seed_key)
+          VALUES (1, ?1)
+          ON CONFLICT(id) DO UPDATE SET
+            seed_key = excluded.seed_key;
+        `,
+      )
+      .run(seedKey);
   }
 }

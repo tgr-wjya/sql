@@ -10,6 +10,10 @@ const playground = new PlaygroundStore();
 
 const publicDir = resolve(process.cwd(), "public");
 
+function currentPlaygroundSeed() {
+  return engine.playgroundSeed();
+}
+
 function serveStatic(fileName: string, contentType: string): Response {
   const absolutePath = resolve(publicDir, fileName);
   const content = readFileSync(absolutePath, "utf8");
@@ -30,10 +34,51 @@ export function startServer(): void {
     .get("/app.js", () =>
       serveStatic("app.js", "application/javascript; charset=utf-8"),
     )
+    .get("/builder.js", () =>
+      serveStatic("builder.js", "application/javascript; charset=utf-8"),
+    )
     .get("/api/state", () => engine.snapshot())
     .get("/api/schema", () => engine.schema())
-    .get("/api/playground/state", () => playground.state())
-    .get("/api/playground/schema", () => playground.schema())
+    .get("/api/graph", () => engine.graph())
+    .get("/api/playground/state", () => {
+      const seed = currentPlaygroundSeed();
+      if (!seed.ok) {
+        return {
+          ok: false,
+          starterSql: "",
+          message: seed.message,
+        };
+      }
+      return playground.state(seed.seedKey, seed.setupSql, seed.starterSql);
+    })
+    .get("/api/playground/schema", () => {
+      const seed = currentPlaygroundSeed();
+      if (!seed.ok) {
+        return {
+          ok: false,
+          schema: "",
+          message: seed.message,
+        };
+      }
+      playground.state(seed.seedKey, seed.setupSql, seed.starterSql);
+      return playground.schema();
+    })
+    .get("/api/playground/graph", () => {
+      const seed = currentPlaygroundSeed();
+      if (!seed.ok) {
+        return {
+          ok: false,
+          graph: {
+            tables: [],
+            foreignKeys: [],
+            generatedAt: new Date().toISOString(),
+          },
+          message: seed.message,
+        };
+      }
+      playground.state(seed.seedKey, seed.setupSql, seed.starterSql);
+      return playground.graph();
+    })
     .post(
       "/api/run",
       ({ body }: { body: { sql: string } }) => {
@@ -48,6 +93,10 @@ export function startServer(): void {
     .post(
       "/api/playground/run",
       ({ body }: { body: { sql: string } }) => {
+        const seed = currentPlaygroundSeed();
+        if (seed.ok) {
+          playground.state(seed.seedKey, seed.setupSql, seed.starterSql);
+        }
         return playground.run(body.sql);
       },
       {
@@ -59,7 +108,17 @@ export function startServer(): void {
     .post("/api/hint", () => engine.hint())
     .post("/api/advance", () => engine.advance())
     .post("/api/reset", () => engine.reset())
-    .post("/api/playground/reset", () => playground.reset())
+    .post("/api/playground/reset", () => {
+      const seed = currentPlaygroundSeed();
+      if (!seed.ok) {
+        return {
+          ok: false,
+          starterSql: "",
+          message: seed.message,
+        };
+      }
+      return playground.reset(seed.seedKey, seed.setupSql, seed.starterSql);
+    })
     .listen(3000);
 
   console.log(

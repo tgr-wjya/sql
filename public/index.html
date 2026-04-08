@@ -68,6 +68,69 @@
 
         <p id="status" class="status"></p>
 
+        <section class="builder-shell">
+          <div class="builder-head">
+            <div>
+              <p class="label">Visual Builder</p>
+              <h4 class="builder-title">Current Objective Relationship Map</h4>
+            </div>
+            <p id="builder-sync-status" class="builder-sync-status">Builder ready. Generated SQL can be sent to the objective editor.</p>
+          </div>
+
+          <div class="builder-grid">
+            <section class="builder-card">
+              <label class="builder-label" for="builder-base-table">Base Table</label>
+              <select id="builder-base-table" class="builder-select"></select>
+              <p class="builder-copy">The generated query starts from the active objective schema.</p>
+            </section>
+
+            <section class="builder-card">
+              <h5 class="builder-card-title">Relationship Map</h5>
+              <div id="builder-relations" class="builder-relations"></div>
+            </section>
+
+            <section class="builder-card">
+              <h5 class="builder-card-title">Selected Joins</h5>
+              <div id="builder-selected-joins" class="builder-joins"></div>
+            </section>
+
+            <section class="builder-card">
+              <h5 class="builder-card-title">Columns</h5>
+              <div id="builder-columns" class="builder-columns"></div>
+            </section>
+
+            <section class="builder-card">
+              <div class="builder-inline-head">
+                <h5 class="builder-card-title">Filters</h5>
+                <button id="builder-add-filter-btn" class="btn btn--mini" type="button">Add Filter</button>
+              </div>
+              <div id="builder-filters" class="builder-stack"></div>
+            </section>
+
+            <section class="builder-card">
+              <div class="builder-inline-head">
+                <h5 class="builder-card-title">Sort</h5>
+                <button id="builder-add-sort-btn" class="btn btn--mini" type="button">Add Sort</button>
+              </div>
+              <div id="builder-sorts" class="builder-stack"></div>
+            </section>
+          </div>
+
+          <section class="builder-card builder-card--preview">
+            <div class="builder-inline-head">
+              <h5 class="builder-card-title">Generated SQL</h5>
+              <div class="builder-actions">
+                <button id="builder-generate-btn" class="btn btn--primary" type="button">Generate SQL</button>
+                <button id="builder-send-btn" class="btn" type="button">Send To Objective</button>
+                <button id="builder-copy-btn" class="btn" type="button">Copy SQL</button>
+                <button id="builder-clear-btn" class="btn btn--ghost-inline" type="button">Clear Builder</button>
+              </div>
+            </div>
+            <pre id="builder-sql-preview" class="schema-view builder-preview">Choose a base table and connect related tables to generate SQL.</pre>
+            <div id="builder-empty-state" class="builder-empty-state"></div>
+          </section>
+        </section>
+
         <section class="playground-shell">
           <div class="playground-head">
             <div>
@@ -75,7 +138,7 @@
               <h3 class="playground-title">SQL Playground</h3>
             </div>
             <p class="playground-copy">
-              Experiment freely here. Reset rebuilds the whole playground database, including any schema you dropped or rewrote.
+              This playground mirrors the current objective schema so you can experiment without touching mission validation. Reset rebuilds it back to the current objective schema and seed data.
             </p>
           </div>
 

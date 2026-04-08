@@ -1,3 +1,5 @@
+import { createVisualSqlBuilder } from "/builder.js";
+
 const elements = {
   rank: document.getElementById("rank"),
   xp: document.getElementById("xp"),
@@ -24,10 +26,27 @@ const elements = {
   playgroundStatus: document.getElementById("playground-status"),
   playgroundResultWrap: document.getElementById("playground-result-wrap"),
   playgroundSchemaView: document.getElementById("playground-schema-view"),
+  builderBaseTable: document.getElementById("builder-base-table"),
+  builderRelations: document.getElementById("builder-relations"),
+  builderSelectedJoins: document.getElementById("builder-selected-joins"),
+  builderColumns: document.getElementById("builder-columns"),
+  builderFilters: document.getElementById("builder-filters"),
+  builderSorts: document.getElementById("builder-sorts"),
+  builderGenerateBtn: document.getElementById("builder-generate-btn"),
+  builderSendBtn: document.getElementById("builder-send-btn"),
+  builderCopyBtn: document.getElementById("builder-copy-btn"),
+  builderClearBtn: document.getElementById("builder-clear-btn"),
+  builderAddFilterBtn: document.getElementById("builder-add-filter-btn"),
+  builderAddSortBtn: document.getElementById("builder-add-sort-btn"),
+  builderSqlPreview: document.getElementById("builder-sql-preview"),
+  builderEmptyState: document.getElementById("builder-empty-state"),
+  builderSyncStatus: document.getElementById("builder-sync-status"),
 };
 
 let snapshot = null;
 let lastObjectiveKey = null;
+let suppressPlaygroundInputEvent = false;
+let suppressSqlInputEvent = false;
 
 function setStatus(message, type = "info") {
   elements.status.textContent = message;
@@ -37,6 +56,18 @@ function setStatus(message, type = "info") {
 function setPlaygroundStatus(message, type = "info") {
   elements.playgroundStatus.textContent = message;
   elements.playgroundStatus.className = `status ${type}`;
+}
+
+function setPlaygroundInputValue(value) {
+  suppressPlaygroundInputEvent = true;
+  elements.playgroundInput.value = value;
+  suppressPlaygroundInputEvent = false;
+}
+
+function setSqlInputValue(value) {
+  suppressSqlInputEvent = true;
+  elements.sqlInput.value = value;
+  suppressSqlInputEvent = false;
 }
 
 function escapeHtml(value) {
@@ -127,7 +158,7 @@ function renderSnapshot(nextSnapshot) {
     elements.objectiveNarrative.textContent =
       "You have completed every available operation. Reset to replay from OP-01.";
     elements.acceptanceList.innerHTML = "";
-    elements.sqlInput.value = "";
+    setSqlInputValue("");
     elements.sqlInput.disabled = true;
     elements.runBtn.disabled = true;
     elements.hintBtn.disabled = true;
@@ -155,7 +186,7 @@ function renderSnapshot(nextSnapshot) {
 
   if (objectiveKey !== lastObjectiveKey) {
     if (!elements.sqlInput.value.trim() && current.starterSql) {
-      elements.sqlInput.value = current.starterSql;
+      setSqlInputValue(current.starterSql);
     }
     lastObjectiveKey = objectiveKey;
   }
@@ -181,6 +212,24 @@ async function apiPost(path, body = undefined) {
   return response.json();
 }
 
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const helper = document.createElement("textarea");
+  helper.value = text;
+  document.body.append(helper);
+  helper.select();
+  document.execCommand("copy");
+  helper.remove();
+}
+
+function hasDdlKeyword(sql) {
+  return /\b(CREATE|ALTER|DROP)\b/i.test(sql);
+}
+
 function pushHint(text) {
   if (!text) return;
 
@@ -190,20 +239,38 @@ function pushHint(text) {
   elements.hintLog.prepend(item);
 }
 
+const builder = createVisualSqlBuilder({
+  elements,
+  apiGet,
+  setTargetInputValue: setSqlInputValue,
+  copyText,
+  graphPath: "/api/graph",
+  targetLabel: "objective editor",
+});
+
 async function boot() {
   const [state, playgroundState] = await Promise.all([
     apiGet("/api/state"),
     apiGet("/api/playground/state"),
   ]);
   renderSnapshot(state);
-  elements.playgroundInput.value = `-- Starter playground tables already exist.
--- Try editing data, creating indexes, or dropping tables.
-SELECT *
-FROM classes
-ORDER BY start_time;`;
   if (playgroundState && playgroundState.ok) {
+    const starter = playgroundState.starterSql?.trim();
+    setPlaygroundInputValue(
+      starter.length > 0
+        ? starter
+        : `-- The current objective did not provide starter SQL.
+-- Use the playground to inspect and experiment with the mirrored schema.`,
+    );
     setPlaygroundStatus(playgroundState.message, "info");
+  } else {
+    setPlaygroundInputValue(`-- Playground unavailable.
+-- The current objective schema could not be loaded.`);
   }
+  await builder.loadGraph({
+    reset: true,
+    message: "Builder ready for the current objective schema. Choose a base table and connect related tables to generate SQL.",
+  });
   setStatus("Console synced. Submit SQL when ready.", "info");
 }
 
@@ -237,6 +304,21 @@ elements.schemaBtn.addEventListener("click", async () => {
 elements.advanceBtn.addEventListener("click", async () => {
   const result = await apiPost("/api/advance");
   renderSnapshot(result.snapshot);
+  const playgroundState = await apiGet("/api/playground/state");
+  if (playgroundState.ok) {
+    const starter = playgroundState.starterSql?.trim();
+    setPlaygroundInputValue(
+      starter.length > 0
+        ? starter
+        : `-- The current objective did not provide starter SQL.
+-- Use the playground to inspect and experiment with the mirrored schema.`,
+    );
+    setPlaygroundStatus(playgroundState.message, "info");
+  }
+  await builder.loadGraph({
+    reset: true,
+    message: "Builder refreshed for the current objective schema.",
+  });
   setStatus(result.message, result.ok ? "ok" : "fail");
   elements.resultWrap.innerHTML = `<p class="muted">Run a query to inspect results.</p>`;
   elements.schemaView.textContent = 'Schema hidden. Use "View Schema".';
@@ -252,6 +334,21 @@ elements.resetBtn.addEventListener("click", async () => {
   elements.resultWrap.innerHTML = `<p class="muted">Run a query to inspect results.</p>`;
   elements.schemaView.textContent = 'Schema hidden. Use "View Schema".';
   renderSnapshot(next);
+  const playgroundState = await apiGet("/api/playground/state");
+  if (playgroundState.ok) {
+    const starter = playgroundState.starterSql?.trim();
+    setPlaygroundInputValue(
+      starter.length > 0
+        ? starter
+        : `-- The current objective did not provide starter SQL.
+-- Use the playground to inspect and experiment with the mirrored schema.`,
+    );
+    setPlaygroundStatus(playgroundState.message, "info");
+  }
+  await builder.loadGraph({
+    reset: true,
+    message: "Builder refreshed for the reset objective schema.",
+  });
   setStatus("Progress reset.", "info");
 });
 
@@ -284,11 +381,23 @@ elements.playgroundResetBtn.addEventListener("click", async () => {
   elements.playgroundResultWrap.innerHTML = `<p class="muted">Run playground SQL to inspect results.</p>`;
   elements.playgroundSchemaView.textContent =
     'Playground schema hidden. Use "View Playground Schema".';
-  elements.playgroundInput.value = `-- Playground rebuilt to the starter dataset.
-SELECT *
-FROM classes
-ORDER BY start_time;`;
+  const starter = result.starterSql?.trim();
+  setPlaygroundInputValue(
+    starter.length > 0
+      ? starter
+      : `-- The current objective did not provide starter SQL.
+-- Use the playground to inspect and experiment with the mirrored schema.`,
+  );
   setPlaygroundStatus(result.message, result.ok ? "ok" : "fail");
+});
+
+elements.playgroundInput.addEventListener("input", () => {
+  if (suppressPlaygroundInputEvent) return;
+});
+
+elements.sqlInput.addEventListener("input", () => {
+  if (suppressSqlInputEvent) return;
+  builder.handleManualInput(elements.sqlInput.value);
 });
 
 boot();

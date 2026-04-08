@@ -90,3 +90,29 @@ export interface Snapshot {
   campaign: CampaignNode[];
   completed: boolean;
 }
+
+export interface PlaygroundColumn {
+  name: string;
+  type: string;
+  notNull: boolean;
+  primaryKeyOrder: number;
+}
+
+export interface PlaygroundTableGraphNode {
+  name: string;
+  columns: PlaygroundColumn[];
+}
+
+export interface PlaygroundForeignKeyEdge {
+  id: string;
+  fromTable: string;
+  fromColumn: string;
+  toTable: string;
+  toColumn: string;
+}
+
+export interface PlaygroundGraph {
+  tables: PlaygroundTableGraphNode[];
+  foreignKeys: PlaygroundForeignKeyEdge[];
+  generatedAt: string;
+}

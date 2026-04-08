@@ -283,6 +283,11 @@ body {
   border-color: rgba(255, 189, 112, 0.32);
 }
 
+.btn--mini {
+  padding: 6px 10px;
+  font-size: 0.84rem;
+}
+
 .status {
   min-height: 23px;
   margin: 12px 0 0;
@@ -400,6 +405,233 @@ th {
   max-width: 70ch;
 }
 
+.builder-shell {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.builder-head {
+  display: grid;
+  gap: 8px;
+}
+
+.builder-title {
+  margin: 4px 0 0;
+  font-size: 1rem;
+}
+
+.builder-sync-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.builder-sync-status.ok {
+  color: var(--good);
+}
+
+.builder-sync-status.fail {
+  color: var(--bad);
+}
+
+.builder-sync-status.info {
+  color: var(--warn);
+}
+
+.builder-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.builder-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.17);
+  min-width: 0;
+}
+
+.builder-card--preview {
+  display: grid;
+  gap: 10px;
+}
+
+.builder-card-title {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.builder-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.builder-select,
+.builder-input {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(4, 18, 23, 0.78);
+  color: var(--text);
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.builder-select:focus,
+.builder-input:focus {
+  outline: 1px solid var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.builder-copy {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.builder-relations,
+.builder-columns,
+.builder-joins,
+.builder-stack,
+.builder-empty-state {
+  display: grid;
+  gap: 8px;
+}
+
+.builder-table {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 10px;
+  background: rgba(7, 24, 30, 0.72);
+}
+
+.builder-table.is-selected {
+  border-color: rgba(93, 232, 215, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(93, 232, 215, 0.2);
+}
+
+.builder-table-head,
+.builder-inline-head,
+.builder-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.builder-table-title,
+.builder-row-title {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.builder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.73rem;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.builder-chip.is-active {
+  color: var(--accent);
+  border-color: rgba(93, 232, 215, 0.5);
+  background: rgba(93, 232, 215, 0.08);
+}
+
+.builder-table-links,
+.builder-column-group,
+.builder-row-fields {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.builder-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid rgba(120, 182, 181, 0.18);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.builder-link-meta,
+.builder-join-meta {
+  display: grid;
+  gap: 3px;
+}
+
+.builder-link-path,
+.builder-join-path {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+}
+
+.builder-link-copy,
+.builder-join-copy,
+.builder-empty-copy {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.builder-column-list {
+  display: grid;
+  gap: 6px;
+}
+
+.builder-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+}
+
+.builder-row {
+  border: 1px solid rgba(120, 182, 181, 0.18);
+  border-radius: 9px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.builder-row-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.builder-row-fields--triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.builder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.builder-preview {
+  min-height: 160px;
+  max-height: 360px;
+}
+
+.builder-empty-state {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.builder-empty-state strong {
+  color: var(--text);
+}
+
 @keyframes rise {
   from {
     opacity: 0;
@@ -424,5 +656,14 @@ th {
 
   .panel--center {
     order: 1;
+  }
+
+  .builder-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .builder-row-fields,
+  .builder-row-fields--triple {
+    grid-template-columns: 1fr;
   }
 }

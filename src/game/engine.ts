@@ -7,6 +7,10 @@ import type {
   GameState,
   Objective,
   ObjectivePhase,
+  PlaygroundColumn,
+  PlaygroundForeignKeyEdge,
+  PlaygroundGraph,
+  PlaygroundTableGraphNode,
   RunResponse,
   Snapshot,
   SqlRow,
@@ -227,6 +231,73 @@ function createObjectiveDb(setupSql: string): Database {
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(setupSql);
   return db;
+}
+
+function buildSchemaGraph(db: Database): PlaygroundGraph {
+  const tableRows = db
+    .query(
+      `
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'table'
+          AND name NOT LIKE 'sqlite_%'
+        ORDER BY name;
+      `,
+    )
+    .all() as Array<{ name: string }>;
+
+  const tables: PlaygroundTableGraphNode[] = tableRows.map((row) => ({
+    name: row.name,
+    columns: (
+      db.query(`PRAGMA table_info(${row.name});`).all() as Array<{
+        name: string;
+        type: string;
+        notnull: number;
+        pk: number;
+      }>
+    ).map(
+      (column): PlaygroundColumn => ({
+        name: column.name,
+        type: column.type || "TEXT",
+        notNull: column.notnull === 1,
+        primaryKeyOrder: column.pk,
+      }),
+    ),
+  }));
+
+  const foreignKeys: PlaygroundForeignKeyEdge[] = [];
+
+  for (const table of tables) {
+    const rows = db.query(`PRAGMA foreign_key_list(${table.name});`).all() as Array<{
+      id: number;
+      seq: number;
+      table: string;
+      from: string;
+      to: string;
+    }>;
+
+    for (const row of rows) {
+      foreignKeys.push({
+        id: `${table.name}:${row.id}:${row.seq}`,
+        fromTable: table.name,
+        fromColumn: row.from,
+        toTable: row.table,
+        toColumn: row.to,
+      });
+    }
+  }
+
+  foreignKeys.sort((left, right) =>
+    `${left.fromTable}.${left.fromColumn}->${left.toTable}.${left.toColumn}`.localeCompare(
+      `${right.fromTable}.${right.fromColumn}->${right.toTable}.${right.toColumn}`,
+    ),
+  );
+
+  return {
+    tables,
+    foreignKeys,
+    generatedAt: new Date().toISOString(),
+  };
 }
 
 function hasRequiredTokens(sql: string, requiredTokens: string[]): { pass: boolean; missing: string[] } {
@@ -646,6 +717,67 @@ export class GameEngine {
       ok: true,
       schema: schemaText,
       message: "Schema loaded.",
+    };
+  }
+
+  graph(): { ok: boolean; graph: PlaygroundGraph; message: string } {
+    const state = this.progressStore.load();
+    const current = this.getCurrent(state);
+
+    if (!current) {
+      return {
+        ok: false,
+        graph: {
+          tables: [],
+          foreignKeys: [],
+          generatedAt: new Date().toISOString(),
+        },
+        message: "Campaign completed.",
+      };
+    }
+
+    const db = createObjectiveDb(current.objective.setupSql);
+    const graph = buildSchemaGraph(db);
+    db.close();
+
+    return {
+      ok: true,
+      graph,
+      message:
+        graph.foreignKeys.length > 0
+          ? "Objective relationship graph loaded."
+          : graph.tables.length > 0
+            ? "Objective schema loaded, but no foreign keys were found."
+            : "This objective does not start with any tables yet.",
+    };
+  }
+
+  playgroundSeed(): {
+    ok: boolean;
+    seedKey: string;
+    setupSql: string;
+    starterSql: string;
+    message: string;
+  } {
+    const state = this.progressStore.load();
+    const current = this.getCurrent(state);
+
+    if (!current) {
+      return {
+        ok: false,
+        seedKey: "completed",
+        setupSql: "",
+        starterSql: "",
+        message: "Campaign completed.",
+      };
+    }
+
+    return {
+      ok: true,
+      seedKey: `${current.operation.id}:${current.objective.id}`,
+      setupSql: current.objective.setupSql,
+      starterSql: current.objective.starterSql ?? "",
+      message: "Objective playground seed loaded.",
     };
   }
 
