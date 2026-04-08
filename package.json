@@ -1,20 +1,26 @@
 {
-  "name": "sql",
-  "module": "index.ts",
-  "type": "module",
-  "private": true,
-  "scripts": {
-    "dev": "bun run index.ts",
-    "start": "bun run index.ts",
-    "typecheck": "bunx tsc --noEmit"
-  },
-  "dependencies": {
-    "elysia": "latest"
-  },
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  }
+	"name": "learning-sql",
+	"module": "index.ts",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"dev": "bun run index.ts",
+		"start": "bun run index.ts",
+		"typecheck": "bunx tsc --noEmit",
+		"biome:check": "bunx @biomejs/biome check .",
+		"biome:write": "bunx @biomejs/biome check . --write",
+		"biome:format": "bunx @biomejs/biome format . --write",
+		"biome:lint": "bunx @biomejs/biome lint .",
+		"biome:ci": "bunx @biomejs/biome ci ."
+	},
+	"dependencies": {
+		"elysia": "latest"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.10",
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	}
 }
